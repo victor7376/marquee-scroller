@@ -1,33 +1,33 @@
-/** The MIT License (MIT)
+ //    /** The MIT License (MIT)
+//
+//  Copyright (c) 2018 David Payne
+//
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in all
+//  copies or substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//  SOFTWARE.
+//*/
 
-  Copyright (c) 2018 David Payne
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
-*/
-
-/**********************************************
-  Edit Settings.h for personalization
-***********************************************/
+///**********************************************
+//  Edit Settings.h for personalization
+//***********************************************/
 
 #include "Settings.h"
 
-#define VERSION "2.16"
+#define VERSION "2.16.OctPrint.CB"
 
 #define HOSTNAME "CLOCK-"
 #define CONFIG "/conf.txt"
@@ -51,12 +51,17 @@ int8_t getWifiQuality();
 // LED Settings
 const int offset = 1;
 int refresh = 0;
-String message = "hello";
+String message = "hi";
 int spacer = 1;  // dots between letters
 int width = 5 + spacer; // The font width is 5 pixels + spacer
 Max72xxPanel matrix = Max72xxPanel(pinCS, numberOfHorizontalDisplays, numberOfVerticalDisplays);
 String Wide_Clock_Style = "1";  //1="hh:mm Temp", 2="hh:mm:ss", 3="hh:mm"
 float UtcOffset;  //time zone offsets that correspond with the CityID above (offset from GMT)
+
+String estimatedTime;
+int estimatedTimeRemainder;
+String estimatedTimeHours;
+String estimatedTimeMinutes;
 
 // Time
 TimeDB TimeDB("");
@@ -66,10 +71,6 @@ long lastEpoch = 0;
 long firstEpoch = 0;
 long displayOffEpoch = 0;
 boolean displayOn = true;
-
-// News Client
-NewsApiClient newsClient(NEWS_API_KEY, NEWS_SOURCE);
-int newsIndex = 0;
 
 // Weather Client
 OpenWeatherMapClient weatherClient(APIKEY, CityIDs, 1, IS_METRIC);
@@ -87,22 +88,20 @@ boolean SHOW_HIGHLOW = true;
 OctoPrintClient printerClient(OctoPrintApiKey, OctoPrintServer, OctoPrintPort, OctoAuthUser, OctoAuthPass);
 int printerCount = 0;
 
-// Pi-hole Client
-PiHoleClient piholeClient;
+// Chaturbate
+Chaturbate chaturbate(ChaturbateTokenKey, ChaturbateUsername);
+WiFiClientSecure modelClient;
 
-// Bitcoin Client
-BitcoinApiClient bitcoinClient;
 
 ESP8266WebServer server(WEBSERVER_PORT);
 ESP8266HTTPUpdateServer serverUpdater;
 
 static const char WEB_ACTIONS1[] PROGMEM = "<a class='w3-bar-item w3-button' href='/'><i class='fas fa-home'></i> Home</a>"
                         "<a class='w3-bar-item w3-button' href='/configure'><i class='fas fa-cog'></i> Configure</a>"
-                        "<a class='w3-bar-item w3-button' href='/configurenews'><i class='far fa-newspaper'></i> News</a>"
-                        "<a class='w3-bar-item w3-button' href='/configureoctoprint'><i class='fas fa-cube'></i> OctoPrint</a>";
+                        "<a class='w3-bar-item w3-button' href='/configureoctoprint'><i class='fas fa-cube'></i> OctoPrint</a>"
+                        "<a class='w3-bar-item w3-button' href='/configurechaturbate'><i class='fas fa-cube'></i> Chaturbate</a>";
 
-static const char WEB_ACTIONS2[] PROGMEM = "<a class='w3-bar-item w3-button' href='/configurebitcoin'><i class='fab fa-bitcoin'></i> Bitcoin</a>"
-                        "<a class='w3-bar-item w3-button' href='/configurepihole'><i class='fas fa-network-wired'></i> Pi-hole</a>"
+static const char WEB_ACTIONS2[] PROGMEM = "<a class='w3-bar-item w3-button' href='/configurewideclock'><i class='fas fa-clock'></i> WideClock</a>"
                         "<a class='w3-bar-item w3-button' href='/pull'><i class='fas fa-cloud-download-alt'></i> Refresh Data</a>"
                         "<a class='w3-bar-item w3-button' href='/display'>";
 
@@ -145,48 +144,9 @@ static const char CHANGE_FORM3[] PROGMEM = "<hr><p><input name='isBasicAuth' cla
                       "<p><button class='w3-button w3-block w3-green w3-section w3-padding' type='submit'>Save</button></p></form>"
                       "<script>function isNumberKey(e){var h=e.which?e.which:event.keyCode;return!(h>31&&(h<48||h>57))}</script>";
 
-static const char BITCOIN_FORM[] PROGMEM = "<form class='w3-container' action='/savebitcoin' method='get'><h2>Bitcoin Configuration:</h2>"
-                        "<p>Select Bitcoin Currency <select class='w3-option w3-padding' name='bitcoincurrency'>%BITCOINOPTIONS%</select></p>"
-                        "<button class='w3-button w3-block w3-grey w3-section w3-padding' type='submit'>Save</button></form>";
-
-static const char CURRENCY_OPTIONS[] PROGMEM = "<option value='NONE'>NONE</option>"
-                          "<option value='USD'>United States Dollar</option>"
-                          "<option value='AUD'>Australian Dollar</option>"
-                          "<option value='BRL'>Brazilian Real</option>"
-                          "<option value='BTC'>Bitcoin</option>"
-                          "<option value='CAD'>Canadian Dollar</option>"
-                          "<option value='CNY'>Chinese Yuan</option>"
-                          "<option value='EUR'>Euro</option>"
-                          "<option value='GBP'>British Pound Sterling</option>"
-                          "<option value='XAU'>Gold (troy ounce)</option>";
-
 static const char WIDECLOCK_FORM[] PROGMEM = "<form class='w3-container' action='/savewideclock' method='get'><h2>Wide Clock Configuration:</h2>"
                           "<p>Wide Clock Display Format <select class='w3-option w3-padding' name='wideclockformat'>%WIDECLOCKOPTIONS%</select></p>"
                           "<button class='w3-button w3-block w3-grey w3-section w3-padding' type='submit'>Save</button></form>";
-
-static const char PIHOLE_FORM[] PROGMEM = "<form class='w3-container' action='/savepihole' method='get'><h2>Pi-hole Configuration:</h2>"
-                        "<p><input name='displaypihole' class='w3-check w3-margin-top' type='checkbox' %PIHOLECHECKED%> Show Pi-hole Statistics</p>"
-                        "<label>Pi-hole Address (do not include http://)</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='piholeAddress' id='piholeAddress' value='%PIHOLEADDRESS%' maxlength='60'>"
-                        "<label>Pi-hole Port</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='piholePort' id= 'piholePort' value='%PIHOLEPORT%' maxlength='5'  onkeypress='return isNumberKey(event)'>"
-                        "<input type='button' value='Test Connection and JSON Response' onclick='testPiHole()'><p id='PiHoleTest'></p>"
-                        "<button class='w3-button w3-block w3-green w3-section w3-padding' type='submit'>Save</button></form>"
-                        "<script>function isNumberKey(e){var h=e.which?e.which:event.keyCode;return!(h>31&&(h<48||h>57))}</script>";
-
-static const char PIHOLE_TEST[] PROGMEM = "<script>function testPiHole(){var e=document.getElementById(\"PiHoleTest\"),t=document.getElementById(\"piholeAddress\").value,"
-                       "n=document.getElementById(\"piholePort\").value;"
-                       "if(e.innerHTML=\"\",\"\"==t||\"\"==n)return e.innerHTML=\"* Address and Port are required\","
-                       "void(e.style.background=\"\");var r=\"http://\"+t+\":\"+n;r+=\"/admin/api.php?summary\",window.open(r,\"_blank\").focus()}</script>";
-
-static const char NEWS_FORM1[] PROGMEM =   "<form class='w3-container' action='/savenews' method='get'><h2>News Configuration:</h2>"
-                        "<p><input name='displaynews' class='w3-check w3-margin-top' type='checkbox' %NEWSCHECKED%> Display News Headlines</p>"
-                        "<label>News API Key (get from <a href='https://newsapi.org/' target='_BLANK'>here</a>)</label>"
-                        "<input class='w3-input w3-border w3-margin-bottom' type='text' name='newsApiKey' value='%NEWSKEY%' maxlength='60'>"
-                        "<p>Select News Source <select class='w3-option w3-padding' name='newssource' id='newssource'></select></p>"
-                        "<script>var s='%NEWSSOURCE%';var tt;var xmlhttp=new XMLHttpRequest();xmlhttp.open('GET','https://raw.githubusercontent.com/Qrome/marquee-scroller/master/sources.json',!0);"
-                        "xmlhttp.onreadystatechange=function(){if(xmlhttp.readyState==4){if(xmlhttp.status==200){var obj=JSON.parse(xmlhttp.responseText);"
-                        "obj.sources.forEach(t)}}};xmlhttp.send();function t(it){if(it!=null){if(s==it.id){se=' selected'}else{se=''}tt+='<option'+se+'>'+it.id+'</option>';"
-                        "document.getElementById('newssource').innerHTML=tt}}</script>"
-                        "<button class='w3-button w3-block w3-grey w3-section w3-padding' type='submit'>Save</button></form>";
 
 static const char OCTO_FORM[] PROGMEM = "<form class='w3-container' action='/saveoctoprint' method='get'><h2>OctoPrint Configuration:</h2>"
                         "<p><input name='displayoctoprint' class='w3-check w3-margin-top' type='checkbox' %OCTOCHECKED%> Show OctoPrint Status</p>"
@@ -200,6 +160,13 @@ static const char OCTO_FORM[] PROGMEM = "<form class='w3-container' action='/sav
                         "<script>function isNumberKey(e){var h=e.which?e.which:event.keyCode;return!(h>31&&(h<48||h>57))}</script>";
 
 
+static const char CHATURBATE_FORM[] PROGMEM = "<form class='w3-container' action='/savechaturbate' method='get'><h2>Chaturbate Configuration:</h2>"
+                        "<p><input name='displaychaturbate' class='w3-check w3-margin-top' type='checkbox' %CHATURBATECHECKED%> Show Chaturbate Status</p>"
+                        "<label>Chaturbate Token Key (get from Chaturbate Stats Page)</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='chaturbateTokenKey' value='%CHATURBATETOKENKEY%' maxlength='60'>"
+                        "<label>Chaturbate Username</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='chaturbateUsername' value='%CHATURBATEUSERNAME%' maxlength='111'>"
+                        "<button class='w3-button w3-block w3-green w3-section w3-padding' type='submit'>Save</button></form>"
+                        "<script>function isNumberKey(e){var h=e.which?e.which:event.keyCode;return!(h>31&&(h<48||h>57))}</script>";
+                   
 
 const int TIMEOUT = 500; // 500 = 1/2 second
 int timeoutCount = 0;
@@ -208,10 +175,14 @@ int timeoutCount = 0;
 int externalLight = LED_BUILTIN; // LED_BUILTIN is is the built in LED on the Wemos
 
 void setup() {
+  
   Serial.begin(115200);
   SPIFFS.begin();
   //SPIFFS.remove(CONFIG);
   delay(10);
+
+  // Chaturbate Fingerprint updates October 2021
+  modelClient.setFingerprint(CHATURBATE_FINGERPRINT);
 
   // Initialize digital pin for LED
   pinMode(externalLight, OUTPUT);
@@ -243,7 +214,7 @@ void setup() {
   delay(1000 * 1.3);
   noTone(BUZZER_PIN);
 
-  for (int inx = 0; inx <= 15; inx++) {
+  for (int inx = 0; inx <= 8; inx++) {
     matrix.setIntensity(inx);
     delay(100);
   }
@@ -309,20 +280,16 @@ void setup() {
     server.on("/", displayWeatherData);
     server.on("/pull", handlePull);
     server.on("/locations", handleLocations);
-    server.on("/savebitcoin", handleSaveBitcoin);
     server.on("/savewideclock", handleSaveWideClock);
-    server.on("/savenews", handleSaveNews);
     server.on("/saveoctoprint", handleSaveOctoprint);
-    server.on("/savepihole", handleSavePihole);
+    server.on("/savechaturbate", handleSaveChaturbate);
     server.on("/systemreset", handleSystemReset);
     server.on("/forgetwifi", handleForgetWifi);
     server.on("/restart", restartEsp);
     server.on("/configure", handleConfigure);
-    server.on("/configurebitcoin", handleBitcoinConfigure);
     server.on("/configurewideclock", handleWideClockConfigure);
-    server.on("/configurenews", handleNewsConfigure);
     server.on("/configureoctoprint", handleOctoprintConfigure);
-    server.on("/configurepihole", handlePiholeConfigure);
+    server.on("/configurechaturbate", handleChaturbateConfigure);
     server.on("/display", handleDisplay);
     server.onNotFound(redirectHome);
     serverUpdater.setup(&server, "/update", www_username, www_password);
@@ -337,8 +304,8 @@ void setup() {
     Serial.println("Web Interface is Disabled");
     scrollMessage("Web Interface is Disabled");
   }
-
   flashLED(1, 500);
+  chaturbate.getDetails();
 }
 
 //************************************************************
@@ -378,27 +345,27 @@ void loop() {
     // Check to see if we need to Scroll some Data
     if (displayRefreshCount <= 0) {
       displayRefreshCount = minutesBetweenScrolling;
-      String temperature = weatherClient.getTempRounded(0);
+      String temperature = weatherClient.getTemp(0);
       String description = weatherClient.getDescription(0);
       description.toUpperCase();
       String msg;
       msg += " ";
 
       if (SHOW_DATE) {
-        msg += TimeDB.getDayName() + ", ";
-        msg += TimeDB.getMonthName() + " " + day() + "  ";
+        msg += TimeDB.getDayName() + ", " + day() + " ";
+        msg += TimeDB.getMonthName() + ", " + year() +": ";//  moved day to previous line, added comma after month name, added year display and colon
       }
       if (SHOW_CITY) {
-        msg += weatherClient.getCity(0) + "  ";
+        msg += weatherClient.getCity(0) + " ";
       }
-      msg += temperature + getTempSymbol() + "  ";
+      msg += temperature + getTempSymbol() + " ";
 
       //show high/low temperature
       if (SHOW_HIGHLOW) {
         msg += "High/Low:" + weatherClient.getHigh(0) + "/" + weatherClient.getLow(0) + " " + getTempSymbol() + "  ";
       }
       
-      if (SHOW_CONDITION) {
+      if (SHOW_CONDITION ) {
         msg += description + "  ";
       }
       if (SHOW_HUMIDITY) {
@@ -414,44 +381,32 @@ void loop() {
      
       msg += marqueeMessage + " ";
       
-      if (NEWS_ENABLED) {
-        msg += "  " + NEWS_SOURCE + ": " + newsClient.getTitle(newsIndex) + "  ";
-        newsIndex += 1;
-        if (newsIndex > 9) {
-          newsIndex = 0;
-        }
-      }
       if (OCTOPRINT_ENABLED && printerClient.isPrinting()) {
-        msg += "  " + printerClient.getFileName() + " ";
-        msg += "(" + printerClient.getProgressCompletion() + "%)  ";
+        msg += "OctoPrint @ " + printerClient.getProgressCompletion() + "%  ";
       }
-      if (BitcoinCurrencyCode != "NONE" && BitcoinCurrencyCode != "") {
-        msg += "  Bitcoin: " + bitcoinClient.getRate() + " " + bitcoinClient.getCode() + " ";
-      }
-      if (USE_PIHOLE) {
-        piholeClient.getPiHoleData(PiHoleServer, PiHolePort);
-        piholeClient.getGraphData(PiHoleServer, PiHolePort);
-        if (piholeClient.getPiHoleStatus() != "") {
-          msg += "    Pi-hole (" + piholeClient.getPiHoleStatus() + "): " + piholeClient.getAdsPercentageToday() + "% "; 
-        }
+
+      if (CHATURBATE_ENABLED) {
+        msg += "Chaturbate:" + chaturbate.getNumFollowers() + " Followers, you have " + chaturbate.getTokenBalance() + " Tokens";
       }
 
       scrollMessage(msg);
-      drawPiholeGraph();
     }
   }
 
   String currentTime = hourMinutes(false);
 
-  if (numberOfHorizontalDisplays >= 8) {
+// ================================================
+// Changes Current Temprature to OctoPrint Progress
+// ================================================
+    if (numberOfHorizontalDisplays >= 8) {
     if (Wide_Clock_Style == "1") {
       // On Wide Display -- show the current temperature as well
-      String currentTemp = weatherClient.getTempRounded(0);
-      String timeSpacer = "  ";
-      if (currentTemp.length() >= 3) {
-        timeSpacer = " ";
+      String currentProgress = printerClient.getProgressCompletion();
+      String timeSpacer = "";
+      if (currentProgress.length() >= 3) {
+        timeSpacer = "";
       }
-      currentTime += timeSpacer + currentTemp + getTempSymbol();
+      currentTime += timeSpacer + "" + currentProgress + "%";
     }
     if (Wide_Clock_Style == "2") {
       currentTime += secondsIndicator(false) + TimeDB.zeroPad(second());
@@ -500,16 +455,6 @@ void handlePull() {
   displayWeatherData();
 }
 
-void handleSaveBitcoin() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  BitcoinCurrencyCode = server.arg("bitcoincurrency");
-  writeCityIds();
-  bitcoinClient.updateBitcoinData(BitcoinCurrencyCode);  // does nothing if BitCoinCurrencyCode is "NONE" or empty
-  redirectHome();
-}
-
 void handleSaveWideClock() {
   if (!athentication()) {
     return server.requestAuthentication();
@@ -519,19 +464,6 @@ void handleSaveWideClock() {
     writeCityIds();
     matrix.fillScreen(LOW); // show black
   }
-  redirectHome();
-}
-
-void handleSaveNews() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  NEWS_ENABLED = server.hasArg("displaynews");
-  NEWS_API_KEY = server.arg("newsApiKey");
-  NEWS_SOURCE = server.arg("newssource");
-  matrix.fillScreen(LOW); // show black
-  writeCityIds();
-  newsClient.updateNews();
   redirectHome();
 }
 
@@ -554,17 +486,15 @@ void handleSaveOctoprint() {
   redirectHome();
 }
 
-void handleSavePihole() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  USE_PIHOLE = server.hasArg("displaypihole");
-  PiHoleServer = server.arg("piholeAddress");
-  PiHolePort = server.arg("piholePort").toInt();
+void handleSaveChaturbate() {
+  CHATURBATE_ENABLED = server.hasArg("displaychaturbate");
+  ChaturbateTokenKey = server.arg("chaturbateTokenKey");
+  ChaturbateUsername = server.arg("chaturbateUsername");
+  matrix.fillScreen(LOW); // show black
   writeCityIds();
-  if (USE_PIHOLE) {
-    piholeClient.getPiHoleData(PiHoleServer, PiHolePort);
-    piholeClient.getGraphData(PiHoleServer, PiHolePort);
+  if (CHATURBATE_ENABLED) {
+    chaturbate.getNumFollowers();
+    chaturbate.getTokenBalance();
   }
   redirectHome();
 }
@@ -634,34 +564,6 @@ void restartEsp() {
   ESP.restart();
 }
 
-void handleBitcoinConfigure() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  digitalWrite(externalLight, LOW);
-  String html = "";
-
-  server.sendHeader("Cache-Control", "no-cache, no-store");
-  server.sendHeader("Pragma", "no-cache");
-  server.sendHeader("Expires", "-1");
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "text/html", "");
-
-  sendHeader();
-
-  String form = FPSTR(BITCOIN_FORM);
-  String bitcoinOptions = FPSTR(CURRENCY_OPTIONS);
-  bitcoinOptions.replace(BitcoinCurrencyCode + "'", BitcoinCurrencyCode + "' selected");
-  form.replace("%BITCOINOPTIONS%", bitcoinOptions);
-  server.sendContent(form); //Send another Chunk of form
-
-  sendFooter();
-
-  server.sendContent("");
-  server.client().stop();
-  digitalWrite(externalLight, HIGH);
-}
-
 void handleWideClockConfigure() {
   if (!athentication()) {
     return server.requestAuthentication();
@@ -679,42 +581,11 @@ void handleWideClockConfigure() {
   if (numberOfHorizontalDisplays >= 8) {
     // Wide display options
     String form = FPSTR(WIDECLOCK_FORM);
-    String clockOptions = "<option value='1'>HH:MM Temperature</option><option value='2'>HH:MM:SS</option><option value='3'>HH:MM</option>";
+    String clockOptions = "<option value='1'>HH:MM OctoPrint Status</option><option value='2'>HH:MM:SS</option><option value='3'>HH:MM</option>";
     clockOptions.replace(Wide_Clock_Style + "'", Wide_Clock_Style + "' selected");
     form.replace("%WIDECLOCKOPTIONS%", clockOptions);
     server.sendContent(form);
   }
-
-  sendFooter();
-
-  server.sendContent("");
-  server.client().stop();
-  digitalWrite(externalLight, HIGH);
-}
-
-void handleNewsConfigure() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  digitalWrite(externalLight, LOW);
-  
-  server.sendHeader("Cache-Control", "no-cache, no-store");
-  server.sendHeader("Pragma", "no-cache");
-  server.sendHeader("Expires", "-1");
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "text/html", "");
-
-  sendHeader();
-
-  String form = FPSTR(NEWS_FORM1);
-  String isNewsDisplayedChecked = "";
-  if (NEWS_ENABLED) {
-    isNewsDisplayedChecked = "checked='checked'";
-  }
-  form.replace("%NEWSCHECKED%", isNewsDisplayedChecked);
-  form.replace("%NEWSKEY%", NEWS_API_KEY);
-  form.replace("%NEWSSOURCE%", NEWS_SOURCE);
-  server.sendContent(form); //Send news form
 
   sendFooter();
 
@@ -762,10 +633,7 @@ void handleOctoprintConfigure() {
   digitalWrite(externalLight, HIGH);
 }
 
-void handlePiholeConfigure() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
+void handleChaturbateConfigure() {
   digitalWrite(externalLight, LOW);
 
   server.sendHeader("Cache-Control", "no-cache, no-store");
@@ -776,26 +644,23 @@ void handlePiholeConfigure() {
 
   sendHeader();
 
-  server.sendContent(FPSTR(PIHOLE_TEST));
-
-  String form = FPSTR(PIHOLE_FORM);
-  String isPiholeDisplayedChecked = "";
-  if (USE_PIHOLE) {
-    isPiholeDisplayedChecked = "checked='checked'";
+  String form = FPSTR(CHATURBATE_FORM);
+  String isChaturbateDisplayedChecked = "";
+  if (CHATURBATE_ENABLED) {
+    isChaturbateDisplayedChecked = "checked='checked'";
   }
-  form.replace("%PIHOLECHECKED%", isPiholeDisplayedChecked);
-  form.replace("%PIHOLEADDRESS%", PiHoleServer);
-  form.replace("%PIHOLEPORT%", String(PiHolePort));
-
+  form.replace("%CHATURBATECHECKED%", isChaturbateDisplayedChecked);
+  form.replace("%CHATURBATETOKENKEY%", ChaturbateTokenKey);
+  form.replace("%CHATURBATEUSERNAME%", ChaturbateUsername);
   server.sendContent(form);
-  form = "";
-          
+
   sendFooter();
 
   server.sendContent("");
   server.client().stop();
   digitalWrite(externalLight, HIGH);
 }
+
 
 void handleConfigure() {
   if (!athentication()) {
@@ -975,19 +840,6 @@ void getWeatherData() //client function to send/receive GET request data.
     Serial.println("firstEpoch is: " + String(firstEpoch));
   }
 
-  if (NEWS_ENABLED && displayOn) {
-    matrix.drawPixel(0, 2, HIGH);
-    matrix.drawPixel(0, 1, HIGH);
-    matrix.drawPixel(0, 0, HIGH);
-    matrix.write();
-    Serial.println("Getting News Data for " + NEWS_SOURCE);
-    newsClient.updateNews();
-  }
-
-  if (displayOn) {
-    bitcoinClient.updateBitcoinData(BitcoinCurrencyCode);  // does nothing if BitCoinCurrencyCode is "NONE" or empty
-  }
-
   Serial.println("Version: " + String(VERSION));
   Serial.println();
   digitalWrite(externalLight, HIGH);
@@ -1094,7 +946,9 @@ void displayWeatherData() {
     temperature.remove(temperature.indexOf(".") + 2);
   }
 
-  String time = TimeDB.getDayName() + ", " + TimeDB.getMonthName() + " " + day() + ", " + hourFormat12() + ":" + TimeDB.zeroPad(minute()) + " " + TimeDB.getAmPm();
+  //String time = TimeDB.getDayName() + ", " + TimeDB.getMonthName() + " " + day() + ", " + hourFormat12() + ":" + TimeDB.zeroPad(minute()) + " " + TimeDB.getAmPm();
+
+  String time = TimeDB.getDayName() + ", " + day() + " " + TimeDB.getMonthName() + " " + year() + " " + hourFormat12() + ":" + TimeDB.zeroPad(minute()) + ":" + TimeDB.zeroPad(second()) + " " + TimeDB.getAmPm();
 
   Serial.println(weatherClient.getCity(0));
   Serial.println(weatherClient.getCondition(0));
@@ -1136,7 +990,14 @@ void displayWeatherData() {
   if (OCTOPRINT_ENABLED) {
     html = "<div class='w3-cell-row'>OctoPrint Status: ";
     if (printerClient.isPrinting()) {
-      html += printerClient.getState() + " " + printerClient.getFileName() + " (" + printerClient.getProgressCompletion() + "%)";
+      html += printerClient.getState() + " @ " + printerClient.getProgressCompletion() + "% Complete <br>";
+
+    int val = printerClient.getProgressPrintTimeLeft().toInt();
+    int hours = numberOfHours(val);
+    int minutes = numberOfMinutes(val);
+    int seconds = numberOfSeconds(val);
+    html += "Est. Print Time Left: " + zeroPad(hours) + ":" + zeroPad(minutes) + ":" + zeroPad(seconds) + "<br>";
+  
     } else if (printerClient.isOperational()) {
       html += printerClient.getState();
     } else if (printerClient.getError() != "") {
@@ -1149,45 +1010,14 @@ void displayWeatherData() {
     html = "";
   }
 
-  if (BitcoinCurrencyCode != "NONE" && BitcoinCurrencyCode != "") {
-    html = "<div class='w3-cell-row'>Bitcoin value: " + bitcoinClient.getRate() + " " + bitcoinClient.getCode() + "</div><br><hr>";
+  if (CHATURBATE_ENABLED) {
+    html = "<div class='w3-cell-row'>Chaturbate Status: ";
+    html += "Chaturbate:" + chaturbate.getNumFollowers() + " Followers, you have " + chaturbate.getTokenBalance() + " Tokens <br>";
+
+    } 
+    html += "</div><br><hr>";
     server.sendContent(String(html));
     html = "";
-  }
-
-  if (USE_PIHOLE) {
-    if (piholeClient.getError() == "") {
-      html = "<div class='w3-cell-row'><b>Pi-hole</b><br>"
-             "Total Queries (" + piholeClient.getUniqueClients() + " clients): <b>" + piholeClient.getDnsQueriesToday() + "</b><br>"
-             "Queries Blocked: <b>" + piholeClient.getAdsBlockedToday() + "</b><br>"
-             "Percent Blocked: <b>" + piholeClient.getAdsPercentageToday() + "%</b><br>"
-             "Domains on Blocklist: <b>" + piholeClient.getDomainsBeingBlocked() + "</b><br>"
-             "Status: <b>" + piholeClient.getPiHoleStatus() + "</b><br>"
-             "</div><br><hr>";
-    } else {
-      html = "<div class='w3-cell-row'>Pi-hole Error";
-      html += "Please <a href='/configurepihole' title='Configure'>Configure</a> for Pi-hole <a href='/configurepihole' title='Configure'><i class='fas fa-cog'></i></a><br>";
-      html += "Status: Error Getting Data<br>";
-      html += "Reason: " + piholeClient.getError() + "<br></div><br><hr>";
-    }
-    server.sendContent(html);
-    html = "";
-  }
-
-  if (NEWS_ENABLED) {
-    html = "<div class='w3-cell-row' style='width:100%'><h2>News (" + NEWS_SOURCE + ")</h2></div>";
-    if (newsClient.getTitle(0) == "") {
-      html += "<p>Please <a href='/configurenews'>Configure News</a> API</p>";
-      server.sendContent(html);
-      html = "";
-    } else {
-      for (int inx = 0; inx < 10; inx++) {
-        html = "<div class='w3-cell-row'><a href='" + newsClient.getUrl(inx) + "' target='_BLANK'>" + newsClient.getTitle(inx) + "</a></div>";
-        html += newsClient.getDescription(inx) + "<br/><br/>";
-        server.sendContent(html);
-        html = "";
-      }
-    }
   }
 
   sendFooter();
@@ -1203,8 +1033,8 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Please connect to AP");
   Serial.println(myWiFiManager->getConfigPortalSSID());
   Serial.println("To setup Wifi Configuration");
-  scrollMessage("Please Connect to AP: " + String(myWiFiManager->getConfigPortalSSID()));
-  centerPrint("wifi");
+  scrollMessage("Please Connect to AP: " + String(myWiFiManager->getConfigPortalSSID()) + " to setup your WiFi");
+  centerPrint("WiFi");
 }
 
 void flashLED(int number, int delayTime) {
@@ -1231,6 +1061,14 @@ String getSpeedSymbol() {
   String rtnValue = "mph";
   if (IS_METRIC) {
     rtnValue = "kph";
+  }
+  return rtnValue;
+}
+
+String zeroPad(int value) {
+  String rtnValue = String(value);
+  if (value < 10) {
+    rtnValue = "0" + rtnValue;
   }
   return rtnValue;
 }
@@ -1338,13 +1176,10 @@ String writeCityIds() {
     f.println("APIKEY=" + APIKEY);
     f.println("CityID=" + String(CityIDs[0]));
     f.println("marqueeMessage=" + marqueeMessage);
-    f.println("newsSource=" + NEWS_SOURCE);
     f.println("timeDisplayTurnsOn=" + timeDisplayTurnsOn);
     f.println("timeDisplayTurnsOff=" + timeDisplayTurnsOff);
     f.println("ledIntensity=" + String(displayIntensity));
     f.println("scrollSpeed=" + String(displayScrollSpeed));
-    f.println("isNews=" + String(NEWS_ENABLED));
-    f.println("newsApiKey=" + NEWS_API_KEY);
     f.println("isFlash=" + String(flashOnSeconds));
     f.println("is24hour=" + String(IS_24HOUR));
     f.println("isPM=" + String(IS_PM));
@@ -1352,6 +1187,7 @@ String writeCityIds() {
     f.println("isMetric=" + String(IS_METRIC));
     f.println("refreshRate=" + String(minutesBetweenDataRefresh));
     f.println("minutesBetweenScrolling=" + String(minutesBetweenScrolling));
+    f.println("octoKey=" + OctoPrintApiKey);
     f.println("isOctoPrint=" + String(OCTOPRINT_ENABLED));
     f.println("isOctoProgress=" + String(OCTOPRINT_PROGRESS));
     f.println("octoKey=" + OctoPrintApiKey);
@@ -1359,10 +1195,12 @@ String writeCityIds() {
     f.println("octoPort=" + String(OctoPrintPort));
     f.println("octoUser=" + OctoAuthUser);
     f.println("octoPass=" + OctoAuthPass);
+    f.println("chaturbateKey=" + ChaturbateTokenKey);
+    f.println("isChaturbate=" + String(CHATURBATE_ENABLED));
+    f.println("chaturbateUsername=" + ChaturbateUsername);
     f.println("www_username=" + String(www_username));
     f.println("www_password=" + String(www_password));
     f.println("IS_BASIC_AUTH=" + String(IS_BASIC_AUTH));
-    f.println("BitcoinCurrencyCode=" + BitcoinCurrencyCode);
     f.println("SHOW_CITY=" + String(SHOW_CITY));
     f.println("SHOW_CONDITION=" + String(SHOW_CONDITION));
     f.println("SHOW_HUMIDITY=" + String(SHOW_HUMIDITY));
@@ -1370,9 +1208,6 @@ String writeCityIds() {
     f.println("SHOW_PRESSURE=" + String(SHOW_PRESSURE));
     f.println("SHOW_HIGHLOW=" + String(SHOW_HIGHLOW));
     f.println("SHOW_DATE=" + String(SHOW_DATE));
-    f.println("USE_PIHOLE=" + String(USE_PIHOLE));
-    f.println("PiHoleServer=" + PiHoleServer);
-    f.println("PiHolePort=" + String(PiHolePort));
   }
   f.close();
   readCityIds();
@@ -1404,20 +1239,6 @@ void readCityIds() {
     if (line.indexOf("CityID=") >= 0) {
       CityIDs[0] = line.substring(line.lastIndexOf("CityID=") + 7).toInt();
       Serial.println("CityID: " + String(CityIDs[0]));
-    }
-    if (line.indexOf("newsSource=") >= 0) {
-      NEWS_SOURCE = line.substring(line.lastIndexOf("newsSource=") + 11);
-      NEWS_SOURCE.trim();
-      Serial.println("newsSource=" + NEWS_SOURCE);
-    }
-    if (line.indexOf("isNews=") >= 0) {
-      NEWS_ENABLED = line.substring(line.lastIndexOf("isNews=") + 7).toInt();
-      Serial.println("NEWS_ENABLED=" + String(NEWS_ENABLED));
-    }
-    if (line.indexOf("newsApiKey=") >= 0) {
-      NEWS_API_KEY = line.substring(line.lastIndexOf("newsApiKey=") + 11);
-      NEWS_API_KEY.trim();
-      Serial.println("NEWS_API_KEY: " + NEWS_API_KEY);
     }
     if (line.indexOf("isFlash=") >= 0) {
       flashOnSeconds = line.substring(line.lastIndexOf("isFlash=") + 8).toInt();
@@ -1507,6 +1328,20 @@ void readCityIds() {
       OctoAuthPass.trim();
       Serial.println("OctoAuthPass=" + OctoAuthPass);
     }
+    if (line.indexOf("isChaturbate=") >= 0) {
+      CHATURBATE_ENABLED = line.substring(line.lastIndexOf("isChaturbate=") + 13).toInt();
+      Serial.println("CHATURBATE_ENABLED=" + String(CHATURBATE_ENABLED));
+    }
+    if (line.indexOf("chaturbateKey=") >= 0) {
+      ChaturbateTokenKey = line.substring(line.lastIndexOf("chaturbateKey=") + 14);
+      ChaturbateTokenKey.trim();
+      Serial.println("ChaturbateTokenKey=" + ChaturbateTokenKey);
+    }
+    if (line.indexOf("chaturbateUsername=") >= 0) {
+      ChaturbateUsername = line.substring(line.lastIndexOf("chaturbateUsername=") + 19);
+      ChaturbateUsername.trim();
+      Serial.println("ChaturbateUsername=" + ChaturbateUsername);
+    }
     if (line.indexOf("www_username=") >= 0) {
       String temp = line.substring(line.lastIndexOf("www_username=") + 13);
       temp.trim();
@@ -1522,11 +1357,6 @@ void readCityIds() {
     if (line.indexOf("IS_BASIC_AUTH=") >= 0) {
       IS_BASIC_AUTH = line.substring(line.lastIndexOf("IS_BASIC_AUTH=") + 14).toInt();
       Serial.println("IS_BASIC_AUTH=" + String(IS_BASIC_AUTH));
-    }
-    if (line.indexOf("BitcoinCurrencyCode=") >= 0) {
-      BitcoinCurrencyCode = line.substring(line.lastIndexOf("BitcoinCurrencyCode=") + 20);
-      BitcoinCurrencyCode.trim();
-      Serial.println("BitcoinCurrencyCode=" + BitcoinCurrencyCode);
     }
     if (line.indexOf("SHOW_CITY=") >= 0) {
       SHOW_CITY = line.substring(line.lastIndexOf("SHOW_CITY=") + 10).toInt();
@@ -1558,27 +1388,14 @@ void readCityIds() {
       SHOW_DATE = line.substring(line.lastIndexOf("SHOW_DATE=") + 10).toInt();
       Serial.println("SHOW_DATE=" + String(SHOW_DATE));
     }
-    if (line.indexOf("USE_PIHOLE=") >= 0) {
-      USE_PIHOLE = line.substring(line.lastIndexOf("USE_PIHOLE=") + 11).toInt();
-      Serial.println("USE_PIHOLE=" + String(USE_PIHOLE));
-    }
-    if (line.indexOf("PiHoleServer=") >= 0) {
-      PiHoleServer = line.substring(line.lastIndexOf("PiHoleServer=") + 13);
-      PiHoleServer.trim();
-      Serial.println("PiHoleServer=" + PiHoleServer);
-    }
-    if (line.indexOf("PiHolePort=") >= 0) {
-      PiHolePort = line.substring(line.lastIndexOf("PiHolePort=") + 11).toInt();
-      Serial.println("PiHolePort=" + String(PiHolePort));
-    }
   }
   fr.close();
   matrix.setIntensity(displayIntensity);
-  newsClient.updateNewsClient(NEWS_API_KEY, NEWS_SOURCE);
   weatherClient.updateWeatherApiKey(APIKEY);
   weatherClient.setMetric(IS_METRIC);
   weatherClient.updateCityIdList(CityIDs, 1);
   printerClient.updateOctoPrintClient(OctoPrintApiKey, OctoPrintServer, OctoPrintPort, OctoAuthUser, OctoAuthPass);
+  chaturbate.updateDetails(ChaturbateTokenKey, ChaturbateUsername);
 }
 
 void scrollMessage(String msg) {
@@ -1613,54 +1430,8 @@ void scrollMessage(String msg) {
   matrix.setCursor(0, 0);
 }
 
-void drawPiholeGraph() {
-  if (!USE_PIHOLE || piholeClient.getBlockedCount() == 0) {
-    return;
-  }
-  int count = piholeClient.getBlockedCount();
-  int high = 0;
-  int row = matrix.width() - 1;
-  int yval = 0;
-
-  int totalRows = count - matrix.width();
-  
-  if (totalRows < 0) {
-    totalRows = 0;
-  }
-
-  // get the high value for the sample that will be on the screen
-  for (int inx = count; inx >= totalRows; inx--) {
-    if (piholeClient.getBlockedAds()[inx] > high) {
-      high = (int)piholeClient.getBlockedAds()[inx];
-    }
-  }
-
-  int currentVal = 0;
-  for (int inx = (count-1); inx >= totalRows; inx--) {
-    currentVal = (int)piholeClient.getBlockedAds()[inx];
-    yval = map(currentVal, 0, high, 7, 0);
-    //Serial.println("Value: " + String(currentVal));
-    //Serial.println("x: " + String(row) + " y:" + String(yval) + " h:" + String(8-yval));
-    matrix.drawFastVLine(row, yval, 8-yval, HIGH);
-    if (row == 0) {
-      break;
-    }
-    row--;
-  }
-  matrix.write();
-  for (int wait = 0; wait < 500; wait++) {
-    if (WEBSERVER_ENABLED) {
-      server.handleClient();
-    }
-    if (ENABLE_OTA) {
-      ArduinoOTA.handle();
-    }
-    delay(20);
-  }
-}
-
 void centerPrint(String msg) {
-  centerPrint(msg, false);
+  centerPrint(msg, true);
 }
 
 void centerPrint(String msg, boolean extraStuff) {
@@ -1709,6 +1480,7 @@ String decodeHtmlString(String msg) {
   decodedMsg.replace("%3E", ">");
   decodedMsg.replace("%3F", "?");
   decodedMsg.replace("%40", "@");
+  decodedMsg.replace("%A3", "£");
   decodedMsg.toUpperCase();
   decodedMsg.trim();
   return decodedMsg;

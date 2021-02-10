@@ -44,14 +44,14 @@ SOFTWARE.
 #include "FS.h"
 #include <SPI.h>
 #include <Adafruit_GFX.h> // --> https://github.com/adafruit/Adafruit-GFX-Library
-#include <Max72xxPanel.h> // --> https://github.com/markruys/arduino-Max72xxPanel
+#include "Max72xxPanel.h" // --> https://github.com/markruys/arduino-Max72xxPanel
 #include <pgmspace.h>
 #include "OpenWeatherMapClient.h"
-#include "TimeDB.h"
-#include "NewsApiClient.h" 
+#include "TimeDB.h" 
 #include "OctoPrintClient.h"
-#include "BitcoinApiClient.h"
-#include "PiHoleClient.h"
+#include "Chaturbate.h"
+#include "Chaturbate_Fingerprint.h"
+#include <WiFiClientSecure.h>
 
 //******************************
 // Start Settings
@@ -60,11 +60,11 @@ SOFTWARE.
 String TIMEDBKEY = ""; // Your API Key from https://timezonedb.com/register
 String APIKEY = ""; // Your API Key from http://openweathermap.org/
 // Default City Location (use http://openweathermap.org/find to find city ID)
-int CityIDs[] = { 5304391 }; //Only USE ONE for weather marquee
+int CityIDs[] = { 2643743 }; //Only USE ONE for weather marquee
 String marqueeMessage = "";
 boolean IS_METRIC = false; // false = Imperial and true = Metric
-boolean IS_24HOUR = false; // 23:00 millitary 24 hour clock
-boolean IS_PM = true; // Show PM indicator on Clock when in AM/PM mode
+boolean IS_24HOUR = true; // 23:00 millitary 24 hour clock
+boolean IS_PM = false; // Show PM indicator on Clock when in AM/PM mode
 const int WEBSERVER_PORT = 80; // The port you can access this device on over HTTP
 const boolean WEBSERVER_ENABLED = true;  // Device will provide a web interface via http://[ip]:[port]/
 boolean IS_BASIC_AUTH = false;  // Use Basic Authorization for Configuration security on Web Interface
@@ -75,18 +75,26 @@ int minutesBetweenScrolling = 1; // Time in minutes between scrolling data (defa
 int displayScrollSpeed = 25; // In milliseconds -- Configurable by the web UI (slow = 35, normal = 25, fast = 15, very fast = 5)
 boolean flashOnSeconds = true; // when true the : character in the time will flash on and off as a seconds indicator
 
-boolean NEWS_ENABLED = true;
-String NEWS_API_KEY = ""; // Get your News API Key from https://newsapi.org
-String NEWS_SOURCE = "reuters";  // https://newsapi.org/sources to get full list of news sources available
 
 // Display Settings
 // CLK -> D5 (SCK)  
 // CS  -> D6 
 // DIN -> D7 (MOSI)
+
 const int pinCS = D6; // Attach CS to this pin, DIN to MOSI and CLK to SCK (cf http://arduino.cc/en/Reference/SPI )
 int displayIntensity = 1;  //(This can be set from 0 - 15)
-const int numberOfHorizontalDisplays = 4; // default 4 for standard 4 x 1 display Max size of 16
+
+//===============================================
+// 1 x 24 works = 1x4 x6 displays
+// 
+// 2 x 4 works
+// 2 x 8 works
+// 2 x 12 works
+//===============================================
+
+const int numberOfHorizontalDisplays = 8; // default 8 for standard 2 * 4 x 1 displays Max size of 24 works
 const int numberOfVerticalDisplays = 1; // default 1 for a single row height
+
 /* set ledRotation for LED Display panels (3 is default)
 0: no rotation
 1: 90 degrees clockwise
@@ -107,16 +115,12 @@ int OctoPrintPort = 80;       // the port you are running your OctoPrint server 
 String OctoAuthUser = "";     // only used if you have haproxy or basic athentintication turned on (not default)
 String OctoAuthPass = "";     // only used with haproxy or basic auth (only needed if you must authenticate)
 
-// Bitcoin Client - NONE or empty is off
-String BitcoinCurrencyCode = "NONE";  // Change to USD, GBD, EUR, or NONE -- this can be managed in the Web Interface
-
-// Pi-hole Client -- monitor basic stats from your Pi-hole server (see http://pi-hole.net)
-boolean USE_PIHOLE = false;   // Set true to display your Pi-hole details
-String PiHoleServer = "";     // IP or Address only (DO NOT include http://)
-int PiHolePort = 80;          // Port of your Pi-hole address (default 80)
-
 boolean ENABLE_OTA = true;    // this will allow you to load firmware to the device over WiFi (see OTA for ESP8266)
 String OTA_Password = "";     // Set an OTA password here -- leave blank if you don't want to be prompted for password
+
+boolean CHATURBATE_ENABLED = false;
+String ChaturbateTokenKey = "";
+String ChaturbateUsername = "";
 
 //******************************
 // End Settings

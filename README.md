@@ -3,11 +3,9 @@
 ## Features include:
 * Accurate Clock refresh off Internet Time Servers
 * Local Weather and conditions (refreshed every 10 - 30 minutes)
-* News Headlines from all the major sources
 * Configured through Web Interface
 * Display 3D print progress from your OctoPrint Server
-* Option to display Bitcoin current value
-* Option to display Pi-hole status and graph (each pixel accross is 10 minutes)
+* Display Account Information from Chaturbate.com
 * Basic Authorization around Configuration web interface
 * Support for OTA (loading firmware over WiFi)
 * Update firmware through web interface
@@ -20,7 +18,7 @@
 
 ## Required Parts:
 * Wemos D1 Mini: https://amzn.to/2qLyKJd
-* Dot Matrix Module: https://amzn.to/2HtnQlD  
+* Dot Matrix Module: https://amzn.to/2HtnQlD  *can work with 1, but 2 displays work better*
 
 Note: Using the links provided here help to support these types of projects. Thank you for the support.  
 
@@ -61,8 +59,9 @@ Use the Arduino guide for details on how to installing and manage libraries http
 <SPI.h>  
 <TimeLib.h> --> https://github.com/PaulStoffregen/Time  
 <Adafruit_GFX.h> --> https://github.com/adafruit/Adafruit-GFX-Library  
-<Max72xxPanel.h> --> https://github.com/markruys/arduino-Max72xxPanel  
-<JsonStreamingParser.h> --> https://github.com/squix78/json-streaming-parser  
+<Max72xxPanel.h> --> See below info
+
+Included modified version from https://github.com/vortigont/arduino-Max72xxPanel/tree/54a4a8502678367b36da5ab6207438c2e2f9208b which fixes issue with more than 20 displays (8x8 modules) - is confirmwed to with up to 24 displays 6 x 1 by 4 displays
 
 Note ArduinoJson (version 5.13.1) is now included as a library file in version 2.7 and later.
 
@@ -70,8 +69,9 @@ Note ArduinoJson (version 5.13.1) is now included as a library file in version 2
 Starting with version 2.0 editing the **Settings.h** file is optional.  All API Keys are now managed in the Web Interface except for the GeoNames Key. It is not required to edit the Settings.h file before loading and running the code.  
 * Open Weather Map free API key: http://openweathermap.org/  -- this is used to get weather data and the latitude and longitude for the current time zone. Weather API key is required for correct time.
 * TimeZoneDB free registration for API key: https://timezonedb.com/register -- this is used for setting the time and getting the correct time zone as well as managing time changes due to Day Light Savings time by regions.  This key is set and managed only through the web interface and added in version 2.10 of Marquee Scroller. TimeZoneDB key is required for correct time display.
-* News API key (free): https://newsapi.org/ -- Optional if you want to get current news headlines.
 * Your OctoPrint API Key -- optional if you use the OctoPrint status.
+* Your Chaturbate Token from https://chaturbate.com/statsapi/authtoken/
+* Your Chaturbate Username
 * Version 2.0 supports Chained 4x1 LED displays -- configure in the Settings.h file.  
 
 NOTE: The settings in the Settings.h are the default settings for the first loading. After loading you will manage changes to the settings via the Web Interface. If you want to change settings again in the settings.h, you will need to erase the file system on the Wemos or use the “Reset Settings” option in the Web Interface.  
