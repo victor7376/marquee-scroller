@@ -402,7 +402,7 @@ void loop() {
     if (Wide_Clock_Style == "1") {
       // On Wide Display -- show the current temperature as well
       String currentProgress = printerClient.getProgressCompletion();
-      String timeSpacer = "";
+      String timeSpacer = " ";
       if (currentProgress.length() >= 3) {
         timeSpacer = "";
       }
