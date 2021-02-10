@@ -840,6 +840,10 @@ void getWeatherData() //client function to send/receive GET request data.
     Serial.println("firstEpoch is: " + String(firstEpoch));
   }
 
+  if (displayOn) {
+    chaturbate.getDetails();  // does nothing if BitCoinCurrencyCode is "NONE" or empty
+  }
+
   Serial.println("Version: " + String(VERSION));
   Serial.println();
   digitalWrite(externalLight, HIGH);
@@ -1018,7 +1022,7 @@ void displayWeatherData() {
     html += "</div><br><hr>";
     server.sendContent(String(html));
     html = "";
-  }
+  
 
   sendFooter();
   server.sendContent("");
