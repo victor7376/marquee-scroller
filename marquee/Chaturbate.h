@@ -37,6 +37,7 @@ class Chaturbate
     void getDetails();
     String getNumFollowers();
     String getTokenBalance();
+    String getPayout();
 
   private:
     const char* servername = "chaturbate.com";
@@ -46,6 +47,7 @@ class Chaturbate
   typedef struct {
     String numfollowers;
     String tokenbalance;
+    String payout;
   } ChaturbateStruct;
 
   ChaturbateStruct chaturbateData;

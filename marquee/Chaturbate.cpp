@@ -39,7 +39,6 @@ void Chaturbate::updateDetails(String tokenKey, String username){
 void Chaturbate::getDetails(){
 
       WiFiClientSecure modelClient;
-      // Fingerprint renews Oct 2021
       modelClient.setFingerprint(CHATURBATE_FINGERPRINT);
       
       if (WiFi.status() == WL_CONNECTED) {
@@ -90,6 +89,8 @@ void Chaturbate::getDetails(){
       int num_followers = root["num_followers"];
       int token_balance = root["token_balance"];
 
+      chaturbateData.payout = token_balance * 0.05;
+
       chaturbateData.numfollowers = (const char*)root["num_followers"];
       chaturbateData.tokenbalance = (const char*)root["token_balance"];
 
@@ -110,4 +111,8 @@ String Chaturbate::getNumFollowers(){
 
 String Chaturbate::getTokenBalance(){
   return chaturbateData.tokenbalance;
+}
+
+String Chaturbate::getPayout(){
+  return chaturbateData.payout;
 }

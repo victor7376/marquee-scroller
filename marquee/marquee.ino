@@ -92,7 +92,6 @@ int printerCount = 0;
 Chaturbate chaturbate(ChaturbateTokenKey, ChaturbateUsername);
 WiFiClientSecure modelClient;
 
-
 ESP8266WebServer server(WEBSERVER_PORT);
 ESP8266HTTPUpdateServer serverUpdater;
 
@@ -305,7 +304,6 @@ void setup() {
     scrollMessage("Web Interface is Disabled");
   }
   flashLED(1, 500);
-  chaturbate.getDetails();
 }
 
 //************************************************************
@@ -386,7 +384,8 @@ void loop() {
       }
 
       if (CHATURBATE_ENABLED) {
-        msg += "Chaturbate:" + chaturbate.getNumFollowers() + " Followers, you have " + chaturbate.getTokenBalance() + " Tokens";
+        msg += "Chaturbate:" + chaturbate.getNumFollowers() + " Followers, you have " + chaturbate.getTokenBalance() + " Tokens  ";
+        msg += "Payout this period: $" + chaturbate.getPayout() + "  ";
       }
 
       scrollMessage(msg);
@@ -406,7 +405,7 @@ void loop() {
       if (currentProgress.length() >= 3) {
         timeSpacer = "";
       }
-      currentTime += timeSpacer + "" + currentProgress + "%";
+      currentTime += timeSpacer + " @" + currentProgress + "%";
     }
     if (Wide_Clock_Style == "2") {
       currentTime += secondsIndicator(false) + TimeDB.zeroPad(second());
@@ -1015,8 +1014,9 @@ void displayWeatherData() {
   }
 
   if (CHATURBATE_ENABLED) {
-    html = "<div class='w3-cell-row'>Chaturbate Status: ";
+    html = "<div class='w3-cell-row'>Chaturbate Status:<br>";
     html += "Chaturbate:" + chaturbate.getNumFollowers() + " Followers, you have " + chaturbate.getTokenBalance() + " Tokens <br>";
+    html += "Payout this period: $" + chaturbate.getPayout() + "<br>";
 
     } 
     html += "</div><br><hr>";
