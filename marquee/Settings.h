@@ -48,7 +48,6 @@ SOFTWARE.
 #include <pgmspace.h>
 #include "OpenWeatherMapClient.h"
 #include "TimeDB.h" 
-#include "OctoPrintClient.h"
 #include "Chaturbate.h"
 #include "Chaturbate_Fingerprint.h"
 #include <WiFiClientSecure.h>
@@ -60,7 +59,7 @@ SOFTWARE.
 String TIMEDBKEY = ""; // Your API Key from https://timezonedb.com/register
 String APIKEY = ""; // Your API Key from http://openweathermap.org/
 // Default City Location (use http://openweathermap.org/find to find city ID)
-int CityIDs[] = { 2643743 }; //Only USE ONE for weather marquee
+int CityIDs[] = { 2644688 }; //Only USE ONE for weather marquee
 String marqueeMessage = "";
 boolean IS_METRIC = false; // false = Imperial and true = Metric
 boolean IS_24HOUR = true; // 23:00 millitary 24 hour clock
@@ -74,7 +73,6 @@ int minutesBetweenDataRefresh = 15;  // Time in minutes between data refresh (de
 int minutesBetweenScrolling = 1; // Time in minutes between scrolling data (default 1 minutes and max is 10)
 int displayScrollSpeed = 25; // In milliseconds -- Configurable by the web UI (slow = 35, normal = 25, fast = 15, very fast = 5)
 boolean flashOnSeconds = true; // when true the : character in the time will flash on and off as a seconds indicator
-
 
 // Display Settings
 // CLK -> D5 (SCK)  
@@ -92,7 +90,7 @@ int displayIntensity = 1;  //(This can be set from 0 - 15)
 // 2 x 12 works
 //===============================================
 
-const int numberOfHorizontalDisplays = 8; // default 8 for standard 2 * 4 x 1 displays Max size of 24 works
+const int numberOfHorizontalDisplays = 8; // default 8 for Using 2 standard 4 x 1 displays Max size of 24 works
 const int numberOfVerticalDisplays = 1; // default 1 for a single row height
 
 /* set ledRotation for LED Display panels (3 is default)
@@ -105,15 +103,6 @@ int ledRotation = 3;
 
 String timeDisplayTurnsOn = "06:30";  // 24 Hour Format HH:MM -- Leave blank for always on. (ie 05:30)
 String timeDisplayTurnsOff = "23:00"; // 24 Hour Format HH:MM -- Leave blank for always on. Both must be set to work.
-
-// OctoPrint Monitoring -- Monitor your 3D printer OctoPrint Server
-boolean OCTOPRINT_ENABLED = false;
-boolean OCTOPRINT_PROGRESS = true;
-String OctoPrintApiKey = "";  // ApiKey from your User Account on OctoPrint
-String OctoPrintServer = "";  // IP or Address of your OctoPrint Server (DO NOT include http://)
-int OctoPrintPort = 80;       // the port you are running your OctoPrint server on (usually 80);
-String OctoAuthUser = "";     // only used if you have haproxy or basic athentintication turned on (not default)
-String OctoAuthPass = "";     // only used with haproxy or basic auth (only needed if you must authenticate)
 
 boolean ENABLE_OTA = true;    // this will allow you to load firmware to the device over WiFi (see OTA for ESP8266)
 String OTA_Password = "";     // Set an OTA password here -- leave blank if you don't want to be prompted for password

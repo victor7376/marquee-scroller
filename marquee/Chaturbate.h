@@ -25,7 +25,7 @@ SOFTWARE.
 #include <ESP8266WiFi.h>
 #include "libs/ArduinoJson/ArduinoJson.h"
 #include <WiFiClientSecure.h>
-#include "Chaturbate_Fingerprint.h"
+#include "Chaturbate_fingerprint.h"
 
 
 class Chaturbate
@@ -38,11 +38,13 @@ class Chaturbate
     String getNumFollowers();
     String getTokenBalance();
     String getPayout();
-
+   
   private:
     const char* servername = "chaturbate.com";
     String myTokenKey;
     String myUsername;
+
+    void resetData();
 
   typedef struct {
     String numfollowers;

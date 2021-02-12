@@ -1,10 +1,9 @@
-# Marquee Scroller (Clock, Weather, News, and More)
+# Marquee Scroller (Clock, Weather & Chaturbate)
 
 ## Features include:
 * Accurate Clock refresh off Internet Time Servers
 * Local Weather and conditions (refreshed every 10 - 30 minutes)
 * Configured through Web Interface
-* Display 3D print progress from your OctoPrint Server
 * Display Account Information from Chaturbate.com
 * Basic Authorization around Configuration web interface
 * Support for OTA (loading firmware over WiFi)
@@ -18,7 +17,7 @@
 
 ## Required Parts:
 * Wemos D1 Mini: https://amzn.to/2qLyKJd
-* Dot Matrix Module: https://amzn.to/2HtnQlD  *can work with 1, but 2 displays work better*
+* 2 x Dot Matrix Modules: https://amzn.to/2HtnQlD  *can work with 1, but 2 displays work better*
 
 Note: Using the links provided here help to support these types of projects. Thank you for the support.  
 
@@ -69,7 +68,6 @@ Note ArduinoJson (version 5.13.1) is now included as a library file in version 2
 Starting with version 2.0 editing the **Settings.h** file is optional.  All API Keys are now managed in the Web Interface except for the GeoNames Key. It is not required to edit the Settings.h file before loading and running the code.  
 * Open Weather Map free API key: http://openweathermap.org/  -- this is used to get weather data and the latitude and longitude for the current time zone. Weather API key is required for correct time.
 * TimeZoneDB free registration for API key: https://timezonedb.com/register -- this is used for setting the time and getting the correct time zone as well as managing time changes due to Day Light Savings time by regions.  This key is set and managed only through the web interface and added in version 2.10 of Marquee Scroller. TimeZoneDB key is required for correct time display.
-* Your OctoPrint API Key -- optional if you use the OctoPrint status.
 * Your Chaturbate Token from https://chaturbate.com/statsapi/authtoken/
 * Your Chaturbate Username
 * Version 2.0 supports Chained 4x1 LED displays -- configure in the Settings.h file.  

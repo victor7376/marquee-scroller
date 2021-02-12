@@ -27,7 +27,7 @@
 
 #include "Settings.h"
 
-#define VERSION "2.16.OctPrint.CB"
+#define VERSION "2.16.CB"
 
 #define HOSTNAME "CLOCK-"
 #define CONFIG "/conf.txt"
@@ -55,13 +55,8 @@ String message = "hi";
 int spacer = 1;  // dots between letters
 int width = 5 + spacer; // The font width is 5 pixels + spacer
 Max72xxPanel matrix = Max72xxPanel(pinCS, numberOfHorizontalDisplays, numberOfVerticalDisplays);
-String Wide_Clock_Style = "1";  //1="hh:mm Temp", 2="hh:mm:ss", 3="hh:mm"
+String Wide_Clock_Style = "1";  //1="hh:mm:ss", 2="hh:mm"
 float UtcOffset;  //time zone offsets that correspond with the CityID above (offset from GMT)
-
-String estimatedTime;
-int estimatedTimeRemainder;
-String estimatedTimeHours;
-String estimatedTimeMinutes;
 
 // Time
 TimeDB TimeDB("");
@@ -84,10 +79,6 @@ boolean SHOW_WINDDIR = true;
 boolean SHOW_PRESSURE = false;
 boolean SHOW_HIGHLOW = true;
 
-// OctoPrint Client
-OctoPrintClient printerClient(OctoPrintApiKey, OctoPrintServer, OctoPrintPort, OctoAuthUser, OctoAuthPass);
-int printerCount = 0;
-
 // Chaturbate
 Chaturbate chaturbate(ChaturbateTokenKey, ChaturbateUsername);
 WiFiClientSecure modelClient;
@@ -97,7 +88,6 @@ ESP8266HTTPUpdateServer serverUpdater;
 
 static const char WEB_ACTIONS1[] PROGMEM = "<a class='w3-bar-item w3-button' href='/'><i class='fas fa-home'></i> Home</a>"
                         "<a class='w3-bar-item w3-button' href='/configure'><i class='fas fa-cog'></i> Configure</a>"
-                        "<a class='w3-bar-item w3-button' href='/configureoctoprint'><i class='fas fa-cube'></i> OctoPrint</a>"
                         "<a class='w3-bar-item w3-button' href='/configurechaturbate'><i class='fas fa-cube'></i> Chaturbate</a>";
 
 static const char WEB_ACTIONS2[] PROGMEM = "<a class='w3-bar-item w3-button' href='/configurewideclock'><i class='fas fa-clock'></i> WideClock</a>"
@@ -146,18 +136,6 @@ static const char CHANGE_FORM3[] PROGMEM = "<hr><p><input name='isBasicAuth' cla
 static const char WIDECLOCK_FORM[] PROGMEM = "<form class='w3-container' action='/savewideclock' method='get'><h2>Wide Clock Configuration:</h2>"
                           "<p>Wide Clock Display Format <select class='w3-option w3-padding' name='wideclockformat'>%WIDECLOCKOPTIONS%</select></p>"
                           "<button class='w3-button w3-block w3-grey w3-section w3-padding' type='submit'>Save</button></form>";
-
-static const char OCTO_FORM[] PROGMEM = "<form class='w3-container' action='/saveoctoprint' method='get'><h2>OctoPrint Configuration:</h2>"
-                        "<p><input name='displayoctoprint' class='w3-check w3-margin-top' type='checkbox' %OCTOCHECKED%> Show OctoPrint Status</p>"
-                        "<p><input name='octoprintprogress' class='w3-check w3-margin-top' type='checkbox' %OCTOPROGRESSCHECKED%> Show OctoPrint progress with clock</p>"
-                        "<label>OctoPrint API Key (get from your server)</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='octoPrintApiKey' value='%OCTOKEY%' maxlength='60'>"
-                        "<label>OctoPrint Address (do not include http://)</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='octoPrintAddress' value='%OCTOADDRESS%' maxlength='60'>"
-                        "<label>OctoPrint Port</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='octoPrintPort' value='%OCTOPORT%' maxlength='5'  onkeypress='return isNumberKey(event)'>"
-                        "<label>OctoPrint User (only needed if you have haproxy or basic auth turned on)</label><input class='w3-input w3-border w3-margin-bottom' type='text' name='octoUser' value='%OCTOUSER%' maxlength='30'>"
-                        "<label>OctoPrint Password </label><input class='w3-input w3-border w3-margin-bottom' type='password' name='octoPass' value='%OCTOPASS%'>"
-                        "<button class='w3-button w3-block w3-green w3-section w3-padding' type='submit'>Save</button></form>"
-                        "<script>function isNumberKey(e){var h=e.which?e.which:event.keyCode;return!(h>31&&(h<48||h>57))}</script>";
-
 
 static const char CHATURBATE_FORM[] PROGMEM = "<form class='w3-container' action='/savechaturbate' method='get'><h2>Chaturbate Configuration:</h2>"
                         "<p><input name='displaychaturbate' class='w3-check w3-margin-top' type='checkbox' %CHATURBATECHECKED%> Show Chaturbate Status</p>"
@@ -280,14 +258,12 @@ void setup() {
     server.on("/pull", handlePull);
     server.on("/locations", handleLocations);
     server.on("/savewideclock", handleSaveWideClock);
-    server.on("/saveoctoprint", handleSaveOctoprint);
     server.on("/savechaturbate", handleSaveChaturbate);
     server.on("/systemreset", handleSystemReset);
     server.on("/forgetwifi", handleForgetWifi);
     server.on("/restart", restartEsp);
     server.on("/configure", handleConfigure);
     server.on("/configurewideclock", handleWideClockConfigure);
-    server.on("/configureoctoprint", handleOctoprintConfigure);
     server.on("/configurechaturbate", handleChaturbateConfigure);
     server.on("/display", handleDisplay);
     server.onNotFound(redirectHome);
@@ -328,16 +304,6 @@ void loop() {
       matrix.shutdown(false);
     }
     matrix.fillScreen(LOW); // show black
-    if (OCTOPRINT_ENABLED) {
-      if (displayOn && ((printerClient.isOperational() || printerClient.isPrinting()) || printerCount == 0)) {
-        // This should only get called if the printer is actually running or if it has been 2 minutes since last check
-        printerClient.getPrinterJobResults();
-      }
-      printerCount += 1;
-      if (printerCount > 2) {
-        printerCount = 0;
-      }
-    }
 
     displayRefreshCount --;
     // Check to see if we need to Scroll some Data
@@ -378,10 +344,6 @@ void loop() {
       }
      
       msg += marqueeMessage + " ";
-      
-      if (OCTOPRINT_ENABLED && printerClient.isPrinting()) {
-        msg += "OctoPrint @ " + printerClient.getProgressCompletion() + "%  ";
-      }
 
       if (CHATURBATE_ENABLED) {
         msg += "Chaturbate:" + chaturbate.getNumFollowers() + " Followers, you have " + chaturbate.getTokenBalance() + " Tokens  ";
@@ -395,23 +357,14 @@ void loop() {
   String currentTime = hourMinutes(false);
 
 // ================================================
-// Changes Current Temprature to OctoPrint Progress
+// Wide Clock Style options
 // ================================================
     if (numberOfHorizontalDisplays >= 8) {
     if (Wide_Clock_Style == "1") {
-      // On Wide Display -- show the current temperature as well
-      String currentProgress = printerClient.getProgressCompletion();
-      String timeSpacer = " ";
-      if (currentProgress.length() >= 3) {
-        timeSpacer = "";
-      }
-      currentTime += timeSpacer + " @" + currentProgress + "%";
-    }
-    if (Wide_Clock_Style == "2") {
       currentTime += secondsIndicator(false) + TimeDB.zeroPad(second());
       matrix.fillScreen(LOW); // show black
     }
-    if (Wide_Clock_Style == "3") {
+    if (Wide_Clock_Style == "2") {
       // No change this is normal clock display
     }
   }
@@ -462,25 +415,6 @@ void handleSaveWideClock() {
     Wide_Clock_Style = server.arg("wideclockformat");
     writeCityIds();
     matrix.fillScreen(LOW); // show black
-  }
-  redirectHome();
-}
-
-void handleSaveOctoprint() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  OCTOPRINT_ENABLED = server.hasArg("displayoctoprint");
-  OCTOPRINT_PROGRESS = server.hasArg("octoprintprogress");
-  OctoPrintApiKey = server.arg("octoPrintApiKey");
-  OctoPrintServer = server.arg("octoPrintAddress");
-  OctoPrintPort = server.arg("octoPrintPort").toInt();
-  OctoAuthUser = server.arg("octoUser");
-  OctoAuthPass = server.arg("octoPass");
-  matrix.fillScreen(LOW); // show black
-  writeCityIds();
-  if (OCTOPRINT_ENABLED) {
-    printerClient.getPrinterJobResults();
   }
   redirectHome();
 }
@@ -580,50 +514,11 @@ void handleWideClockConfigure() {
   if (numberOfHorizontalDisplays >= 8) {
     // Wide display options
     String form = FPSTR(WIDECLOCK_FORM);
-    String clockOptions = "<option value='1'>HH:MM OctoPrint Status</option><option value='2'>HH:MM:SS</option><option value='3'>HH:MM</option>";
+    String clockOptions = "<option value='1'>HH:MM:SS</option><option value='2'>HH:MM</option>";
     clockOptions.replace(Wide_Clock_Style + "'", Wide_Clock_Style + "' selected");
     form.replace("%WIDECLOCKOPTIONS%", clockOptions);
     server.sendContent(form);
   }
-
-  sendFooter();
-
-  server.sendContent("");
-  server.client().stop();
-  digitalWrite(externalLight, HIGH);
-}
-
-void handleOctoprintConfigure() {
-  if (!athentication()) {
-    return server.requestAuthentication();
-  }
-  digitalWrite(externalLight, LOW);
-
-  server.sendHeader("Cache-Control", "no-cache, no-store");
-  server.sendHeader("Pragma", "no-cache");
-  server.sendHeader("Expires", "-1");
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "text/html", "");
-
-  sendHeader();
-
-  String form = FPSTR(OCTO_FORM);
-  String isOctoPrintDisplayedChecked = "";
-  if (OCTOPRINT_ENABLED) {
-    isOctoPrintDisplayedChecked = "checked='checked'";
-  }
-  form.replace("%OCTOCHECKED%", isOctoPrintDisplayedChecked);
-  String isOctoPrintProgressChecked = "";
-  if (OCTOPRINT_PROGRESS) {
-    isOctoPrintProgressChecked = "checked='checked'";
-  }
-  form.replace("%OCTOPROGRESSCHECKED%", isOctoPrintProgressChecked);
-  form.replace("%OCTOKEY%", OctoPrintApiKey);
-  form.replace("%OCTOADDRESS%", OctoPrintServer);
-  form.replace("%OCTOPORT%", String(OctoPrintPort));
-  form.replace("%OCTOUSER%", OctoAuthUser);
-  form.replace("%OCTOPASS%", OctoAuthPass);
-  server.sendContent(form);
 
   sendFooter();
 
@@ -659,7 +554,6 @@ void handleChaturbateConfigure() {
   server.client().stop();
   digitalWrite(externalLight, HIGH);
 }
-
 
 void handleConfigure() {
   if (!athentication()) {
@@ -840,7 +734,7 @@ void getWeatherData() //client function to send/receive GET request data.
   }
 
   if (displayOn) {
-    chaturbate.getDetails();  // does nothing if BitCoinCurrencyCode is "NONE" or empty
+    chaturbate.getDetails();
   }
 
   Serial.println("Version: " + String(VERSION));
@@ -988,30 +882,6 @@ void displayWeatherData() {
 
   server.sendContent(String(html)); // spit out what we got
   html = ""; // fresh start
-
-
-  if (OCTOPRINT_ENABLED) {
-    html = "<div class='w3-cell-row'>OctoPrint Status: ";
-    if (printerClient.isPrinting()) {
-      html += printerClient.getState() + " @ " + printerClient.getProgressCompletion() + "% Complete <br>";
-
-    int val = printerClient.getProgressPrintTimeLeft().toInt();
-    int hours = numberOfHours(val);
-    int minutes = numberOfMinutes(val);
-    int seconds = numberOfSeconds(val);
-    html += "Est. Print Time Left: " + zeroPad(hours) + ":" + zeroPad(minutes) + ":" + zeroPad(seconds) + "<br>";
-  
-    } else if (printerClient.isOperational()) {
-      html += printerClient.getState();
-    } else if (printerClient.getError() != "") {
-      html += printerClient.getError();
-    } else {
-      html += "Not Connected";
-    }
-    html += "</div><br><hr>";
-    server.sendContent(String(html));
-    html = "";
-  }
 
   if (CHATURBATE_ENABLED) {
     html = "<div class='w3-cell-row'>Chaturbate Status:<br>";
@@ -1191,14 +1061,6 @@ String writeCityIds() {
     f.println("isMetric=" + String(IS_METRIC));
     f.println("refreshRate=" + String(minutesBetweenDataRefresh));
     f.println("minutesBetweenScrolling=" + String(minutesBetweenScrolling));
-    f.println("octoKey=" + OctoPrintApiKey);
-    f.println("isOctoPrint=" + String(OCTOPRINT_ENABLED));
-    f.println("isOctoProgress=" + String(OCTOPRINT_PROGRESS));
-    f.println("octoKey=" + OctoPrintApiKey);
-    f.println("octoServer=" + OctoPrintServer);
-    f.println("octoPort=" + String(OctoPrintPort));
-    f.println("octoUser=" + OctoAuthUser);
-    f.println("octoPass=" + OctoAuthPass);
     f.println("chaturbateKey=" + ChaturbateTokenKey);
     f.println("isChaturbate=" + String(CHATURBATE_ENABLED));
     f.println("chaturbateUsername=" + ChaturbateUsername);
@@ -1300,38 +1162,6 @@ void readCityIds() {
       displayScrollSpeed = line.substring(line.lastIndexOf("scrollSpeed=") + 12).toInt();
       Serial.println("displayScrollSpeed=" + String(displayScrollSpeed));
     }
-    if (line.indexOf("isOctoPrint=") >= 0) {
-      OCTOPRINT_ENABLED = line.substring(line.lastIndexOf("isOctoPrint=") + 12).toInt();
-      Serial.println("OCTOPRINT_ENABLED=" + String(OCTOPRINT_ENABLED));
-    }
-    if (line.indexOf("isOctoProgress=") >= 0) {
-      OCTOPRINT_PROGRESS = line.substring(line.lastIndexOf("isOctoProgress=") + 15).toInt();
-      Serial.println("OCTOPRINT_PROGRESS=" + String(OCTOPRINT_PROGRESS));
-    }
-    if (line.indexOf("octoKey=") >= 0) {
-      OctoPrintApiKey = line.substring(line.lastIndexOf("octoKey=") + 8);
-      OctoPrintApiKey.trim();
-      Serial.println("OctoPrintApiKey=" + OctoPrintApiKey);
-    }
-    if (line.indexOf("octoServer=") >= 0) {
-      OctoPrintServer = line.substring(line.lastIndexOf("octoServer=") + 11);
-      OctoPrintServer.trim();
-      Serial.println("OctoPrintServer=" + OctoPrintServer);
-    }
-    if (line.indexOf("octoPort=") >= 0) {
-      OctoPrintPort = line.substring(line.lastIndexOf("octoPort=") + 9).toInt();
-      Serial.println("OctoPrintPort=" + String(OctoPrintPort));
-    }
-    if (line.indexOf("octoUser=") >= 0) {
-      OctoAuthUser = line.substring(line.lastIndexOf("octoUser=") + 9);
-      OctoAuthUser.trim();
-      Serial.println("OctoAuthUser=" + OctoAuthUser);
-    }
-    if (line.indexOf("octoPass=") >= 0) {
-      OctoAuthPass = line.substring(line.lastIndexOf("octoPass=") + 9);
-      OctoAuthPass.trim();
-      Serial.println("OctoAuthPass=" + OctoAuthPass);
-    }
     if (line.indexOf("isChaturbate=") >= 0) {
       CHATURBATE_ENABLED = line.substring(line.lastIndexOf("isChaturbate=") + 13).toInt();
       Serial.println("CHATURBATE_ENABLED=" + String(CHATURBATE_ENABLED));
@@ -1398,7 +1228,6 @@ void readCityIds() {
   weatherClient.updateWeatherApiKey(APIKEY);
   weatherClient.setMetric(IS_METRIC);
   weatherClient.updateCityIdList(CityIDs, 1);
-  printerClient.updateOctoPrintClient(OctoPrintApiKey, OctoPrintServer, OctoPrintPort, OctoAuthUser, OctoAuthPass);
   chaturbate.updateDetails(ChaturbateTokenKey, ChaturbateUsername);
 }
 
@@ -1445,11 +1274,6 @@ void centerPrint(String msg, boolean extraStuff) {
   if (extraStuff) {
     if (!IS_24HOUR && IS_PM && isPM()) {
       matrix.drawPixel(matrix.width() - 1, 6, HIGH);
-    }
-
-    if (OCTOPRINT_ENABLED && OCTOPRINT_PROGRESS && printerClient.isPrinting()) {
-      int numberOfLightPixels = (printerClient.getProgressCompletion().toFloat() / float(100)) * (matrix.width() - 1);
-      matrix.drawFastHLine(0, 7, numberOfLightPixels, HIGH);
     }
     
   }

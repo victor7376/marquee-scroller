@@ -45,6 +45,7 @@ void Chaturbate::getDetails(){
         Serial.println(F("Connecting to Chaturbate..."));
       if (!modelClient.connect("chaturbate.com", 443)) {
         Serial.println(F("Failed to connect to Chaturbate"));
+        resetData();
         return;
       }
       Serial.println(F("Connected to Chaturbate"));
@@ -58,7 +59,6 @@ void Chaturbate::getDetails(){
       modelClient.println(F("Connection: close"));
       modelClient.println();
 
-  
       //Check the returning code                                                                  
         char status[32] = {0};
       modelClient.readBytesUntil('\r', status, sizeof(status));
@@ -66,6 +66,7 @@ void Chaturbate::getDetails(){
       if (strcmp(status, "HTTP/1.1 200 OK") != 0) {
         Serial.print("Unexpected HTTP status");
         Serial.println(status);
+        resetData();
         return;
       }
 
@@ -73,6 +74,7 @@ void Chaturbate::getDetails(){
 
       // Skip response headers
       modelClient.find("\r\n\r\n");
+      resetData();
 
       // CB v5
       const size_t bufferSize = JSON_OBJECT_SIZE(12) + 238;
@@ -115,4 +117,11 @@ String Chaturbate::getTokenBalance(){
 
 String Chaturbate::getPayout(){
   return chaturbateData.payout;
+}
+
+// Reset all ChaturbateData
+void Chaturbate::resetData() {
+  chaturbateData.numfollowers = "";
+  chaturbateData.tokenbalance = "";
+  chaturbateData.payout = "";
 }
